@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.batch.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.batch.name }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.batch.name }}
+        app.kubernetes.io/name: {{ .Values.batch.name }}
+        app.kubernetes.io/instance: {{ .Values.batch.name }}
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+        - name: {{ .Values.batch.container.name }}
+          image: {{ .Values.batch.repo.url }}:{{ .Values.batch.image.tag }}
+          imagePullPolicy: Always
+          env:
+            - name: PUB_DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.batch.backing.pobdb.name }}
+                  key: dbhost
+            - name: PUB_DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.batch.backing.pobdb.name }}
+                  key: port
+            - name: PUB_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.batch.backing.pobdb.name }}
+                  key: database
+            - name: PUB_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.batch.backing.pobdb.name }}
+                  key: username
+            - name: PUB_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.batch.backing.pobdb.name }}
+                  key: password
+            - name: SUB_DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.batch.backing.subdb.name }}
+                  key: dbhost
+            - name: SUB_DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.batch.backing.subdb.name }}
+                  key: port
+            - name: SUB_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.batch.backing.subdb.name }}
+                  key: database
+            - name: SUB_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.batch.backing.subdb.name }}
+                  key: username
+            - name: SUB_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.batch.backing.subdb.name }}
+                  key: password
+
+          envFrom:
+          resources:
+            requests:
+              memory: "{{ default "64Mi" .Values.batch.resource.request.memory }}"
+              cpu: "{{ default "100m" .Values.batch.resource.request.cpu }}"
+            {{- if and (ne .Values.batch.resource.limits.memory "0Mi") (ne .Values.batch.resource.limits.memory "0Gi") }}
+            limits:
+              memory: "{{ default "64Mi" .Values.batch.resource.limits.memory }}"
+              cpu: "{{ default "100m" .Values.batch.resource.limits.cpu }}"
+            {{- end }}
+          volumeMounts:
+            - name: {{ .Values.batch.volume.name }}
+              mountPath: /logs
+
+      volumes:
+        - name: {{ .Values.batch.volume.name }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.pvc.name }}
+
+      imagePullSecrets:
+        - name: {{ .Values.batch.image.secret }}
